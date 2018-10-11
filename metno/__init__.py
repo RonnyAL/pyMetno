@@ -101,12 +101,12 @@ class MetWeatherData:
         if self.data is None:
             return []
 
-        now = datetime.datetime.now(time_zone).replace(hour=12, minute=0,
+        now = datetime.datetime.now(time_zone).replace(hour=0, minute=0,
                                                        second=0, microsecond=0)
         times = [now + datetime.timedelta(days=k) for k in range(1, 6)]
         return [self.get_weather(_time) for _time in times]
 
-    def get_weather(self, time, max_hour=6):
+    def get_weather(self, time, max_hour=24):
         """Get the current weather data from met.no."""
         if self.data is None:
             return {}
@@ -138,15 +138,14 @@ class MetWeatherData:
         res['humidity'] = get_data('humidity', ordered_entries)
         res['wind_speed'] = get_data('windSpeed', ordered_entries)
         res['wind_bearing'] = get_data('windDirection', ordered_entries)
-        res['templow'] = get_minmax('templow', ordered_entries)
-        res['temphigh'] = get_minmax('temphigh', ordered_entries)
+        res['templow'] = get_min_max('templow', ordered_entries)
+        """res['temphigh'] = get_min_max('temphigh', ordered_entries)"""
         return res
 
-def get_minmax(param, data):
+def get_min_max(param, data):
     """Retrieve min/max temperature."""
-
-    temps = []
     try:
+        temps = []
         for (_, selected_time_entry) in data:
             loc_data = selected_time_entry['location']
             if 'temperature' not in loc_data:
@@ -156,6 +155,7 @@ def get_minmax(param, data):
             return None
 
     finally:
+        print(str(parse_datetime(selected_time_entry['@from'])) + " - " + str(parse_datetime(selected_time_entry['@to'])) + "\n" + repr(temps))
         return min(temps) if param == 'templow' else max(temps)
 
 def get_data(param, data):
@@ -190,3 +190,14 @@ def parse_datetime(dt_str):
     date_format = "%Y-%m-%dT%H:%M:%S %z"
     dt_str = dt_str.replace("Z", " +0000")
     return datetime.datetime.strptime(dt_str, date_format)
+
+async def fetch(met):
+    await met.fetching_data()
+
+if __name__ == "__main__":
+    met = MetWeatherData("", None, DEFAULT_API_URL + "?lat=59.911491&lon=10.757933")
+    loop1 = asyncio.get_event_loop()
+    loop1.run_until_complete(fetch(met))
+    loop1.close()
+    met.get_forecast(pytz.utc)
+
