@@ -120,7 +120,7 @@ class MetWeatherData:
                 continue
 
             average_dist = (abs((valid_to - time).total_seconds()) +
-                            abs((valid_from - time).total_seconds()))
+                            abs((valid_from - time).total_seconds()))/2
 
             if average_dist > max_hour * 3600:
                 continue
@@ -138,25 +138,25 @@ class MetWeatherData:
         res['humidity'] = get_data('humidity', ordered_entries)
         res['wind_speed'] = get_data('windSpeed', ordered_entries)
         res['wind_bearing'] = get_data('windDirection', ordered_entries)
-        res['templow'] = get_min_max('templow', ordered_entries)
-        """res['temphigh'] = get_min_max('temphigh', ordered_entries)"""
+        minmax = get_min_max(ordered_entries)
+        res['templow'] = minmax['min']
+        res['temphigh'] = minmax['max']
+        print(str(res['datetime']) + ": " + str(res['temphigh']) + " | " + str(res['templow']))
         return res
 
-def get_min_max(param, data):
+def get_min_max(data):
     """Retrieve min/max temperature."""
-    try:
-        temps = []
-        for (_, selected_time_entry) in data:
-            loc_data = selected_time_entry['location']
-            if 'temperature' not in loc_data:
-                continue
-            temps.append(round(float(loc_data['temperature']['@value']), 1))
-    except (ValueError, IndexError, KeyError):
-            return None
+    temps = []
+    params=['temperature', 'minTemperature', 'maxTemperature']
+    for (_, selected_time_entry) in data:
+        loc_data = selected_time_entry['location']
+        for param in params:
+            if param in loc_data:
+                temps.append(round(float(loc_data[param]['@value']), 1))
 
-    finally:
-        print(str(parse_datetime(selected_time_entry['@from'])) + " - " + str(parse_datetime(selected_time_entry['@to'])) + "\n" + repr(temps))
-        return min(temps) if param == 'templow' else max(temps)
+    if (len(temps) < 2):
+        return None
+    return { 'min': min(temps), 'max': max(temps) }
 
 def get_data(param, data):
     """Retrieve weather parameter."""
